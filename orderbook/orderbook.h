@@ -44,6 +44,7 @@ int Orderbook_init(Orderbook *self, PyObject *args, PyObject *kwds);
 
 PyObject* Orderbook_todict(const Orderbook *self, PyObject *unused, PyObject *kwargs);
 PyObject* Orderbook_checksum(const Orderbook *self, PyObject *Py_UNUSED(ignored));
+PyObject* Orderbook_sweepprice(const Orderbook *self, PyObject *volume);
 
 
 Py_ssize_t Orderbook_len(const Orderbook *self);
@@ -68,6 +69,7 @@ static PyMemberDef Orderbook_members[] = {
 static PyMethodDef Orderbook_methods[] = {
     {"to_dict", (PyCFunction) Orderbook_todict, METH_VARARGS | METH_KEYWORDS, "return a python dictionary with bids and asks"},
     {"checksum", (PyCFunction) Orderbook_checksum, METH_NOARGS, "calculate checksum using top N levels"},
+    {"sweep_price", (PyCFunction) Orderbook_sweepprice, METH_VARARGS, "get the sweep price for volume X"},
     {NULL}
 };
 
@@ -127,6 +129,9 @@ static PyModuleDef orderbookmodule = {
 
 // Checksum Definitions
 static PyObject* calculate_checksum(const Orderbook *ob);
+
+// Sweep price definitions
+static PyObject* calc_sweep_price(const SortedDict *side, double volume);
 
 
 #endif

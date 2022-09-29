@@ -638,3 +638,77 @@ static PyObject* calculate_checksum(const Orderbook *ob)
             return NULL;
     }
 }
+
+
+/* Orderbook Sweep Prices */
+PyObject* Orderbook_sweepprice(const Orderbook *self, PyObject *args)
+{
+    double volume;
+
+    if (!PyArg_ParseTuple(args, "d", &volume)) {
+        PyErr_SetString(PyExc_ValueError, "incorrect arguments given, sweep_price only supports 1 float as argument");
+        return NULL;
+    }
+
+    if (EXPECT(volume <= 0, 0)) {
+        PyErr_SetString(PyExc_ValueError, "volume needs to be greater than 0");
+        return NULL;
+    }
+
+    PyObject *ret = PyDict_New();
+    if (EXPECT(!ret, 0)) {
+        return NULL;
+    }
+
+
+    PyObject *ask_price = calc_sweep_price(self->asks, volume);
+    if (EXPECT(PyDict_SetItemString(ret, "ask", ask_price) < 0, 0)) {
+        Py_DECREF(ret);
+        Py_DECREF(ask_price);
+        return NULL;
+    }
+    Py_DECREF(ask_price);
+
+    PyObject *bid_price = calc_sweep_price(self->bids, volume);
+    if (EXPECT(PyDict_SetItemString(ret, "bid", bid_price) < 0, 0)) {
+        Py_DECREF(ret);
+        Py_DECREF(bid_price);
+        return NULL;
+    }
+    Py_DECREF(bid_price);
+
+    return ret;
+}
+
+
+static PyObject* calc_sweep_price(const SortedDict *side, double volume)
+{
+    uint32_t len = SortedDict_len(side);
+    PyObject *keys = SortedDict_keys(side, 0);
+
+    PyObject *price;
+    PyObject *size = NULL;
+
+    double dvol;
+    double dprice = 0;
+    double cumvol = 0;
+
+    for(int i = 0; i < len; ++i) {
+        price = PyTuple_GET_ITEM(keys, i);
+        size = PyDict_GetItem(side->data, price);
+        dprice = PyFloat_AsDouble(price);
+        dvol = PyFloat_AsDouble(size);
+        cumvol += dprice * dvol;
+        if (cumvol >= volume) {
+            break;
+        }
+    }
+
+    Py_DECREF(keys);
+    if (dprice == 0) {
+        Py_RETURN_NONE;
+    }
+    else {
+        return PyFloat_FromDouble(dprice);
+    }
+}

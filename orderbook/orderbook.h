@@ -131,7 +131,7 @@ static PyModuleDef orderbookmodule = {
 static PyObject* calculate_checksum(const Orderbook *ob);
 
 // Sweep price definitions
-static PyObject* calc_sweep_price(const SortedDict *side, double volume);
+static int calc_sweep_price(const SortedDict *side, char *side_name, double volume, PyObject *out_dict);
 
 
 #endif

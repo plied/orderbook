@@ -660,31 +660,28 @@ PyObject* Orderbook_sweepprice(const Orderbook *self, PyObject *args)
         return NULL;
     }
 
-
-    PyObject *ask_price = calc_sweep_price(self->asks, volume);
-    if (EXPECT(PyDict_SetItemString(ret, "ask", ask_price) < 0, 0)) {
+    if (EXPECT(calc_sweep_price(self->asks, "ask", volume, ret) < 0, 0)) {
         Py_DECREF(ret);
-        Py_DECREF(ask_price);
         return NULL;
     }
-    Py_DECREF(ask_price);
 
-    PyObject *bid_price = calc_sweep_price(self->bids, volume);
-    if (EXPECT(PyDict_SetItemString(ret, "bid", bid_price) < 0, 0)) {
+    if (EXPECT(calc_sweep_price(self->bids, "bid", volume, ret) < 0, 0)) {
         Py_DECREF(ret);
-        Py_DECREF(bid_price);
         return NULL;
     }
-    Py_DECREF(bid_price);
 
     return ret;
 }
 
 
-static PyObject* calc_sweep_price(const SortedDict *side, double volume)
+static int calc_sweep_price(const SortedDict *side, char *side_name, double volume, PyObject *out_dict)
 {
     uint32_t len = SortedDict_len(side);
     PyObject *keys = SortedDict_keys(side, 0);
+    if (EXPECT(!keys, 0)) {
+        PyErr_SetString(PyExc_KeyError, "Error while getting keys of SortedDict object");
+        return -1;
+    }
 
     PyObject *price;
     PyObject *size = NULL;
@@ -696,8 +693,8 @@ static PyObject* calc_sweep_price(const SortedDict *side, double volume)
     for(int i = 0; i < len; ++i) {
         price = PyTuple_GET_ITEM(keys, i);
         size = PyDict_GetItem(side->data, price);
-        dprice = PyFloat_AsDouble(price);
-        dvol = PyFloat_AsDouble(size);
+        dprice = PyFloat_AS_DOUBLE(price);
+        dvol = PyFloat_AS_DOUBLE(size);
         cumvol += dprice * dvol;
         if (cumvol >= volume) {
             break;
@@ -705,10 +702,21 @@ static PyObject* calc_sweep_price(const SortedDict *side, double volume)
     }
 
     Py_DECREF(keys);
+    PyObject *result;
+
     if (dprice == 0) {
-        Py_RETURN_NONE;
+        result = Py_None;
     }
     else {
-        return PyFloat_FromDouble(dprice);
+        result = PyFloat_FromDouble(dprice);
     }
+
+    if (EXPECT(PyDict_SetItemString(out_dict, side_name, result) < 0, 0)) {
+        Py_DECREF(result);
+        return -1;
+    }
+
+    Py_DECREF(result);
+
+    return 0;
 }
